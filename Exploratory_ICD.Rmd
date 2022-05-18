@@ -22,8 +22,7 @@ sort(table(covid.deaths$icd3), decreasing=T)[1:100]
 
 ## look at ICD3 in 45-64 year old females
 ```{r} 
-
-sort(table(covid.deaths$icd3[covid.deaths$sex=='F' & covid.deaths$agec %in% c('45-64 years') ]), decreasing=T)[1:100]
+sort(table(covid.deaths$icd2[covid.deaths$sex=='M' & covid.deaths$agec %in% c('45-64 years') ]), decreasing=T)[1:100]
 ```
 
 
