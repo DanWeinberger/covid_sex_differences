@@ -57,17 +57,6 @@ df1$race_recode[is.na(df1$race_recode)] <- 999
 #4-American Indian/Native Alaskan
 #5: Asian/Pacific Island
 
-
-#Create aggregate time series for analysis
-agg1 <- df1 %>%
-  bind_rows() %>% 
-  group_by(year, qtr, sex, agec, region, race_recode) %>%
-  summarize(N_deaths = n())  %>%
-  ungroup  %>%
-  tidyr::complete(year,qtr, sex, agec,region,race_recode, fill=list(N_deaths=0)) #fills 0s
-
-saveRDS(agg1,'./Raw Data/Confidential/compiled_sex_age_race_qtr_region.rds')
-
 df1$age_group <- df1$agec
 df1$agec <- NA
 df1$agec[df1$age_group %in% c('01','02','03','04')] <- "Under 25 Years"
