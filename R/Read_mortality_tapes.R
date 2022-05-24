@@ -68,14 +68,14 @@ df1$agec[df1$age_group %in% c('11')] <- '85 years and older'
 
 ## Cause specific deaths
 
-covid.codes <- c('U071','Z28310','Z28311',"Z86.16", "Z28.9","J1282","M3581") #Define codes for COVID-19 https://www.cdc.gov/mmwr/volumes/70/wr/mm7014e2.htm U07.1 probably only relevant one for 2020
+legionella.codes <- c('A481') #Define codes for legionella https://www.cdc.gov/mmwr/volumes/70/wr/mm7014e2.htm U07.1 probably only relevant one for 2020
 
 icd.cols <- grep('icd',names(df1)) #Define columns with multiple cause of death stats
 
-df.covid <- pbapply(df1[,icd.cols],2, function(x) x %in% covid.codes )
+df.legionella <- pbapply(df1[,icd.cols],2, function(x) x %in% legionella.codes )
 
-df1$covid <- rowSums(df.covid) #how many RSV codes re there per row?
-df1$covid <- 1*(df1$covid>0) #convert to binary
+df1$legionella <- rowSums(df.legionella) #how many RSV codes re there per row?
+df1$legionella <- 1*(df1$legionella>0) #convert to binary
 df1$agey <- as.numeric(df1$age_detail_number)
 df1$agey[df1$age_detail_class==2] <- as.numeric(df1$age_detail_number[df1$age_detail_class==2] )/12
 df1$agey[df1$age_detail_class==4] <- as.numeric(df1$age_detail_number[df1$age_detail_class==4] )/365
@@ -83,7 +83,7 @@ df1$agey[df1$age_detail_class==5] <- as.numeric(df1$age_detail_number[df1$age_de
 df1$agey[df1$age_detail_class==6] <- as.numeric(df1$age_detail_number[df1$age_detail_class==6] )/365/24/60
 
 
-covid.deaths <- df1[df1$covid==1,]
+legionella.deaths <- df1[df1$legionella==1,]
 #hist(df1$agey[df1$rsv==1 & df1$agey<1])
 
-saveRDS(covid.deaths,'./Data/covid_deaths_line_list.rds')
+saveRDS(legionella.deaths,'./Data/legionella_deaths_line_list.rds')
