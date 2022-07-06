@@ -77,7 +77,11 @@ p3.ds <- merge(p3$ts, pop2, by=c('agec','race_recode', 'date')) %>%
 
 ggplot(p3.ds, aes(x=agec, y=log(inc), group=race_recode,col=race_recode)) +
   geom_line()+
-  theme_classic()
+  theme_classic()+
+  ggtitle('Rate of death by age and race/ethnicity')+
+   theme(axis.text.x = element_text(angle = 45, vjust = 0.9, hjust=1)) +
+  ylab('Deaths/100,000') +
+  xlab('')
 ```
 
 

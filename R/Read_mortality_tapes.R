@@ -64,7 +64,8 @@ df1$race_recode[is.na(df1$race_recode)] <- 999
 
 df1$age_group <- df1$agec
 df1$agec <- NA
-df1$agec[df1$age_group %in% c('01','02','03','04')] <- "Under 25 Years"
+df1$agec[df1$age_group %in% c('01','02')] <- "Under 5 Years"
+df1$agec[df1$age_group %in% c('03','04')] <- "5-24 Years"
 df1$agec[df1$age_group %in% c('05','06')] <- "25-44 years"
 df1$agec[df1$age_group %in% c('07','08')] <- "45-64 years"
 df1$agec[df1$age_group %in% c('09')] <- "65-74 years"
