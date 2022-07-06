@@ -15,5 +15,8 @@ death_plot_fun <- function(...){
     theme_classic() +
     scale_color_manual(values=plot.cols)+
     ylim(0, NA)
-  return(p1)
+  
+  out.list = list('plot1'=p1, 'ts'=plot.ds1)
+  
+  return(out.list)
 }

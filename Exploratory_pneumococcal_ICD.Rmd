@@ -21,7 +21,13 @@ pneumo.deaths$race_recode <- factor(pneumo.deaths$race_recode, levels=c(1,2,3,4,
 
 Popsize data
 ```{r}
-pop1 <- Format_US_Population()
+#Format_US_Population()
+pop1 <- readRDS('./Data/pop_interpol.rds')
+
+pop2 <- pop1 %>%
+  group_by(date, agec, race_recode) %>%
+  summarize(pop.interpol= sum(pop.interpol)) %>%
+  mutate(race_recode= factor(race_recode,levels=c(1,2,3,4,5), c('White','Black','Hispanic','American Indian', 'Asian/Pacific Islanders')))
 ```
 
 
@@ -35,16 +41,17 @@ sort(table(pneumo.deaths$icd2), decreasing=T)[1:100]
 
 ```{r}
 p1 <- death_plot_fun(year,month)
+p1$plot1
 ```
 
 ```{r}
-p2 <- death_plot_fun(year,month, agec) + facet_wrap(~agec, scales='free')
-p2
+p2 <- death_plot_fun(year,month, agec) 
+p2$plot1 + facet_wrap(~agec, scales='free')
 ```
 Note; big differences in age distribution. Hispanic skews much younger
 ```{r}
-p3 <- death_plot_fun(year,month, race_recode) + facet_wrap(~race_recode, scales='free')
-p3
+p3 <- death_plot_fun(year,month, race_recode) 
+p3$plot1+ facet_wrap(~race_recode, scales='free')
 ```
 
 
@@ -55,6 +62,22 @@ Age of deaths, by race/ethnicity. The proportion of deaths among kids is much hi
   theme_classic() +
   facet_wrap(~race_recode, scales='free_y')
 p1
+```
+```{r}
+p3 <- death_plot_fun(year,month, race_recode, agec) 
+
+p3$ts$date <- as.Date(paste(p3$ts$year, p3$ts$month, '01',sep='-') , '%Y-%m-%d' )
+
+
+p3.ds <- merge(p3$ts, pop2, by=c('agec','race_recode', 'date')) %>%
+  group_by(race_recode, agec) %>%
+  summarize(N_deaths=sum(N_deaths), pop=mean(pop.interpol))%>%
+  ungroup() %>%
+  mutate(inc=N_deaths/pop*100000 , race_recode=factor(race_recode)) 
+
+ggplot(p3.ds, aes(x=agec, y=log(inc), group=race_recode,col=race_recode)) +
+  geom_line()+
+  theme_classic()
 ```
 
 
