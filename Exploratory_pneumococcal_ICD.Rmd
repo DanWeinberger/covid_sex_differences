@@ -1,0 +1,60 @@
+---
+title: "Exploratory"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(ggplot2)
+source('./R/death_plot_fun.R')
+source('./R/Format_US_Population.R')
+```
+
+```{r}
+pneumo.deaths <-   readRDS('./Data/pneumococcal_deaths_line_list.rds')
+
+pneumo.deaths$agec <- factor(pneumo.deaths$agec, c("Under 25 Years", "25-44 years","45-64 years","65-74 years" ,"75-84 years","85 years and older"))
+
+pneumo.deaths$race_recode <- factor(pneumo.deaths$race_recode, levels=c(1,2,3,4,5), c('White','Black','Hispanic','American Indian', 'Asian/Pacific Islanders')) 
+```
+
+Popsize data
+```{r}
+pop1 <- Format_US_Population()
+```
+
+
+```{r}
+sort(table(pneumo.deaths$icd1), decreasing=T)[1:100]
+```
+
+```{r}
+sort(table(pneumo.deaths$icd2), decreasing=T)[1:100]
+```
+
+```{r}
+p1 <- death_plot_fun(year,month)
+```
+
+```{r}
+p2 <- death_plot_fun(year,month, agec) + facet_wrap(~agec, scales='free')
+p2
+```
+Note; big differences in age distribution. Hispanic skews much younger
+```{r}
+p3 <- death_plot_fun(year,month, race_recode) + facet_wrap(~race_recode, scales='free')
+p3
+```
+
+
+Age of deaths, by race/ethnicity. The proportion of deaths among kids is much higher for Black and Hispanic populations. need to look at incidence by age
+```{r}
+ p1 <- ggplot(pneumo.deaths, aes(x=agey))+
+  geom_histogram() +
+  theme_classic() +
+  facet_wrap(~race_recode, scales='free_y')
+p1
+```
+
+

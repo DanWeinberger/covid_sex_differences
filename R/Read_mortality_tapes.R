@@ -12,16 +12,21 @@ library(cdlTools)
 # 
 # 
 # #https://www.cdc.gov/nchs/data_access/vitalstatsonline.htm
-# file.names1<- list('VS20MORT.DUSMCPUB_r20220105')
+# file.names1<- list('VS14MORT.DUSMCPUB','VS15MORT.DUSMCPUB','VS16MORT.DUSMCPUB','VS17MORT.DUSMCPUB','Mort2018US.PubUse.txt','VS19MORT.DUSMCPUB_r20210304','VS20MORT.DUSMCPUB_r20220105')
 # 
 # all.ds <- lapply(file.names1, function(x){
-#   d1 <- read_fwf(file=paste0("./Data/NCHS_raw/" ,x),
+#   d1 <- read_fwf(file=paste0("./Data/CDC_tapes/" ,x),
 #                  fwf_positions(start=c(20,61,65,69,102,445,70,71, 79,484,146,167,174,181,188,195,202,209,216,223,230,237,244,251,258,265,272,279,286,293,300, 806),
 #                                end=c(  20,64,66,69,105,446,  70,73, 80,486,149, 171,178,185,192,199,206,213,220,227,234,241,248,255,262,269,276,283,290,297,304, 817),
 #                                col_names = c('res_status','education','month','sex','year','race','age_detail_class','age_detail_number','agec','hispanic', paste0('icd', 1:21 ), 'occupation' )),
 #                   guess_max=10000)
 #   return(d1)
 # })
+# 
+# all.ds <- lapply(all.ds, function(x){
+#   x$education = as.character(x$education) 
+#   return(x)
+#   })
 # 
 #  df1 <- bind_rows(all.ds)
 #  saveRDS(df1, './Raw Data/compiled_data.rds')
