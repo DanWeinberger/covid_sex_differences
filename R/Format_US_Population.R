@@ -18,7 +18,7 @@ Format_US_Population <- function(){
   
   d1$agec <- NA
   d1$agec[d1$agey >=0 & d1$agey<5] <- "Under 5 Years"
-  d1$agec[d1$agey >=5 & d1$agey<5] <- "5-24 Years"
+  d1$agec[d1$agey >=5 & d1$agey<25] <- "5-24 Years"
   
   d1$agec[d1$agey >=25 & d1$agey<45] <- "25-44 years"
   d1$agec[d1$agey >=45 & d1$agey<65] <- "45-64 years"
