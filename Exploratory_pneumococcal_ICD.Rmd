@@ -38,6 +38,13 @@ sort(table(pneumo.deaths$icd1), decreasing=T)[1:100]
 ```
 
 ```{r}
+pneumo.prim <- pneumo.deaths %>%
+  filter(icd1 %in% c('A403','J13','B953','G001'))
+table(pneumo.prim$icd1, pneumo.prim$agec)
+```
+
+
+```{r}
 sort(table(pneumo.deaths$icd2), decreasing=T)[1:100]
 ```
 
