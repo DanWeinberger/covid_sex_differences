@@ -6,7 +6,9 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(dplyr)
+library(lubridate)
 library(ggplot2)
+library(MASS)
 source('./R/death_plot_fun.R')
 source('./R/Format_US_Population.R')
 ```
@@ -82,6 +84,52 @@ ggplot(p3.ds, aes(x=agec, y=log(inc), group=race_recode,col=race_recode)) +
    theme(axis.text.x = element_text(angle = 45, vjust = 0.9, hjust=1)) +
   ylab('Deaths/100,000') +
   xlab('')
+```
+
+
+## Question 1: Did the rate of death due to pneumococcus change during the pandemic?
+
+Fit model to 2014-2019 data, extrapolate to 2020 and beyond
+
+```{r}
+ds1 <- p1$ts %>%
+  mutate(date=as.Date(paste(year, month, '01', sep='-')),
+         qtr=as.factor(lubridate::quarter(date)),
+         index= interval('2014-01-01', date) %/% months(1) ,
+         sin12 = sin(2*pi*index/12),
+         cos12 = cos(2*pi*index/12),
+         sin6 = sin(2*pi*index*2/12),
+         cos6 = cos(2*pi*index*2/12),
+         N_deaths_pre= if_else(year %in%'2020', NA_real_,N_deaths),
+         log_offset=log(1))
+
+
+mod1 <- glm(N_deaths_pre ~ index+ sin12+cos12 +sin6 +cos6, 
+            data=ds1, family='poisson')
+
+
+mod2 <- glm.nb(N_deaths_pre ~ index+ sin12+cos12 +sin6 +cos6, 
+            data=ds1)
+
+ds1 <- cbind.data.frame(ds1,pred_interval(mod=mod1,model.type='poisson'))
+
+ggplot(data=ds1, aes(x=date, y=N_deaths)) +
+  geom_line() +
+  theme_classic()+
+    geom_ribbon(aes(ymin=pred_lcl, ymax=pred_ucl), alpha=0.2)
+
+
+ds1 <- ds1 %>%
+  mutate(rr_median=N_deaths/pred_median, rr_lcl=N_deaths/pred_lcl, rr_ucl=N_deaths/pred_ucl)
+
+
+ggplot(data=ds1, aes(x=date, y=rr_median)) +
+  geom_line() +
+  theme_classic()+
+    geom_ribbon(aes(ymin=rr_lcl, ymax=rr_ucl), alpha=0.2)+
+  ylim(0.5,2.2) +
+  geom_hline(yintercept=1, lty=2, col='gray')
+
 ```
 
 
