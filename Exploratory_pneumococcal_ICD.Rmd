@@ -208,7 +208,7 @@ ggplot(data=ds2, aes(x=date, y=rr_median)) +
 
 race/ethnicity and age
 
-```{r}
+```{r, fig.width=8, fig.height=8}
 ds3 <- p3$ts %>%
   mutate(date=as.Date(paste(year, month, '01', sep='-')),
          qtr=as.factor(lubridate::quarter(date)),
@@ -265,5 +265,129 @@ ggplot(data=ds3, aes(x=date, y=rr_median)) +
   facet_wrap(race_recode~agec)
 
 ```
+
+Non-white race/ethnicity is very sparse--try to dichotomize race (white vs non-white)
+```{r, fig.width=8, fig.height=3}
+ds3 <- p3$ts %>%
+  mutate( race_recode=as.character(race_recode),
+         race_recode=if_else(race_recode=='White', 'White', 'non_White'),
+         race_recode=as.factor(race_recode)) %>%
+    group_by( year ,month, agec, race_recode) %>%
+  summarize(N_deaths=sum(N_deaths)) %>%
+  mutate(date=as.Date(paste(year, month, '01', sep='-')),
+         qtr=as.factor(lubridate::quarter(date)),
+         index= interval('2014-01-01', date) %/% months(1) ,
+         sin12 = sin(2*pi*index/12),
+         cos12 = cos(2*pi*index/12),
+         sin6 = sin(2*pi*index*2/12),
+         cos6 = cos(2*pi*index*2/12),
+         N_deaths_pre= if_else(year %in% '2020', NA_real_,N_deaths),
+         log_offset=log(1)) %>%
+  filter( !is.na(agec) & agec %in% c('25-44 years','45-64 years','65-74 years', '75-84 years','85 years and older' ) ) 
+
+
+mod.mat3 <- as.data.frame(model.matrix(~index+ sin12+cos12 +sin6 +cos6 + agec +race_recode, data=ds3))
+names(mod.mat3) <- gsub('-','_',names(mod.mat3))
+names(mod.mat3) <- gsub(' ','_',names(mod.mat3))
+names(mod.mat3) <- gsub('/','_',names(mod.mat3))
+#names(mod.mat3) <- gsub('race_recode','',names(mod.mat3), fixed=T)
+
+ds3 <- cbind.data.frame(ds3,mod.mat3[,c(grep('agec', names(mod.mat3)), grep('race_recode', names(mod.mat3)))] )
+
+#Poisson
+mod3 <- glm(N_deaths_pre ~ index+ sin12+cos12 +sin6 +cos6  + agec5_24_years + agec25_44_years +
+                                      agec45_64_years + agec65_74_years + agec75_84_years +  agec85_years_and_older  + race_recodeWhite , 
+            data=ds3, family='poisson')
+
+#Negative binomial
+# mod2 <- glm.nb(N_deaths_pre ~ index+ sin12+cos12 +sin6 +cos6 + agec5_24_years + agec25_44_years +
+#                                       agec45_64_years + agec65_74_years + agec75_84_years +  agec85_years_and_older, 
+#             data=ds2)
+
+ds3 <- cbind.data.frame(ds3,pred_interval(mod=mod3,model.type='poisson',ds.glm=ds3))
+
+ggplot(data=ds3, aes(x=date, y=N_deaths)) +
+  geom_line() +
+  theme_classic()+
+    geom_ribbon(aes(ymin=pred_lcl, ymax=pred_ucl), alpha=0.2) +
+  facet_wrap(race_recode~agec, scales='free', nrow=2)+
+      geom_vline(xintercept=as.Date('2020-03-01'), lty=2, col='gray80') 
+
+ggplot(data=ds3[ds3$year==2020,], aes(x=date, y=N_deaths)) +
+  geom_line() +
+  theme_classic()+
+    geom_ribbon(aes(ymin=pred_lcl, ymax=pred_ucl), alpha=0.2) +
+  facet_wrap(race_recode~agec, scales='free', nrow=2)+
+      geom_vline(xintercept=as.Date('2020-03-01'), lty=2, col='gray80') 
+
+
+ds3 <- ds3 %>%
+  mutate(rr_median=N_deaths/pred_median, rr_lcl=N_deaths/pred_lcl, rr_ucl=N_deaths/pred_ucl)
+
+
+ggplot(data=ds3, aes(x=date, y=rr_median)) +
+  geom_line() +
+  theme_classic()+
+    geom_ribbon(aes(ymin=rr_lcl, ymax=rr_ucl), alpha=0.2)+
+  ylim(0.1,5) +
+  geom_hline(yintercept=1, lty=2, col='red') +
+    geom_vline(xintercept=as.Date('2020-03-01'), lty=2, col='gray80') +
+
+  facet_wrap(race_recode~agec, nrow=2)
+```
+
+By region (for use with internal data only)
+
+```{r}
+
+
+```
+
+
+Occupation--86% missing
+
+```{r}
+unique(pneumo.deaths$occupation)
+
+sum(is.na(pneumo.deaths$occupation))/nrow(pneumo.deaths)
+```
+
+Education--2.5% missing
+
+Education (1989 revision)
+00 No formal education
+00-08Years of elementary school
+09 1 year of high school
+10 2 years of high school
+11 3 years of high school
+12 4 years of high school
+13 1 year of college
+14 2 years of college
+15 3 years of college
+16 4 years of college
+17 5 or more years of college
+99 Not stated 
+
+Education (2003 revision)
+Field is blank for registration areas that are using the 1989 revision format of the item.
+1 ... 8th grade or less
+2 ... 9 - 12th grade, no diploma
+3 ... high school graduate or GED completed
+4 ... some college credit, but no degree
+5 ... Associate degree
+6 ... Bachelor’s degree
+7 ... Master’s degree
+8 ... Doctorate or professional degree
+9 ... Unknown 
+
+extracted fields 61-64, which includes Education 1989 revision field 1-2; education 2003 revision field 3, reporting flag field 4...need to parse this 
+```{r}
+unique(pneumo.deaths$education)
+
+sum(substr(pneumo.deaths$education,1,1)== '9')/nrow(pneumo.deaths)
+
+```
+
+
 
 
