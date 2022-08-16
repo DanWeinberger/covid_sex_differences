@@ -19,6 +19,8 @@ pneumo.deaths <-   readRDS('./Data/pneumococcal_deaths_line_list.rds')
 pneumo.deaths$agec <- factor(pneumo.deaths$agec, c("Under 5 Years",'5-24 years', "25-44 years","45-64 years","65-74 years" ,"75-84 years","85 years and older"))
 
 pneumo.deaths$race_recode <- factor(pneumo.deaths$race_recode, levels=c(1,2,3,4,5), c('White','Black','Hispanic','American Indian', 'Asian/Pacific Islanders')) 
+
+pneumo.deaths$one <- 1
 ```
 
 Popsize data
@@ -69,19 +71,24 @@ p3$plot1+ facet_wrap(~race_recode, scales='free')
 
 Age of deaths, by race/ethnicity. The proportion of deaths among kids is much higher for Black and Hispanic populations. need to look at incidence by age
 ```{r}
- p1 <- ggplot(pneumo.deaths, aes(x=agey))+
+
+p3 <- death_plot_fun(year,month, race_recode, agec) 
+
+ p4 <- ggplot(pneumo.deaths, aes(x=agey))+
   geom_histogram() +
   theme_classic() +
   facet_wrap(~race_recode, scales='free_y')
-p1
+p4
 ```
 ```{r}
 p3 <- death_plot_fun(year,month, race_recode, agec) 
 
 p3$ts$date <- as.Date(paste(p3$ts$year, p3$ts$month, '01',sep='-') , '%Y-%m-%d' )
 
+p3$ts$year <- as.numeric(as.character(p3$ts$year))
 
 p3.ds <- merge(p3$ts, pop2, by=c('agec','race_recode', 'date')) %>%
+  filter(year<2020) %>% #Pre-padnemic rates
   group_by(race_recode, agec) %>%
   summarize(N_deaths=sum(N_deaths), pop=mean(pop.interpol))%>%
   ungroup() %>%
@@ -92,7 +99,7 @@ ggplot(p3.ds, aes(x=agec, y=log(inc), group=race_recode,col=race_recode)) +
   theme_classic()+
   ggtitle('Rate of death by age and race/ethnicity')+
    theme(axis.text.x = element_text(angle = 45, vjust = 0.9, hjust=1)) +
-  ylab('Deaths/100,000') +
+  ylab('log(Deaths/100,000)') +
   xlab('')
 ```
 
@@ -110,16 +117,16 @@ ds1 <- p1$ts %>%
          cos12 = cos(2*pi*index/12),
          sin6 = sin(2*pi*index*2/12),
          cos6 = cos(2*pi*index*2/12),
-         N_deaths_pre= if_else(year %in%'2020', NA_real_,N_deaths),
+         N_deaths_pre= if_else(year %in% '2020', NA_real_,N_deaths),
          log_offset=log(1))
 
-
-mod1 <- glm(N_deaths_pre ~ index+ sin12+cos12 +sin6 +cos6, 
+#Poisson
+mod1 <- glm(N_deaths_pre ~ index+ sin12+cos12 +sin6 +cos6,
             data=ds1, family='poisson')
 
-
-mod2 <- glm.nb(N_deaths_pre ~ index+ sin12+cos12 +sin6 +cos6, 
-            data=ds1)
+#Negative binomial
+# mod1 <- glm.nb(N_deaths_pre ~ index+ sin12+cos12 +sin6 +cos6,
+#             data=ds1)
 
 ds1 <- cbind.data.frame(ds1,pred_interval(mod=mod1,model.type='poisson'))
 
@@ -138,7 +145,124 @@ ggplot(data=ds1, aes(x=date, y=rr_median)) +
   theme_classic()+
     geom_ribbon(aes(ymin=rr_lcl, ymax=rr_ucl), alpha=0.2)+
   ylim(0.5,2.2) +
-  geom_hline(yintercept=1, lty=2, col='gray')
+  geom_hline(yintercept=1, lty=2, col='red')
+
+```
+
+Did the rate change by age group or ethnic group?
+```{r}
+ds2 <- p2$ts %>%
+  mutate(date=as.Date(paste(year, month, '01', sep='-')),
+         qtr=as.factor(lubridate::quarter(date)),
+         index= interval('2014-01-01', date) %/% months(1) ,
+         sin12 = sin(2*pi*index/12),
+         cos12 = cos(2*pi*index/12),
+         sin6 = sin(2*pi*index*2/12),
+         cos6 = cos(2*pi*index*2/12),
+         N_deaths_pre= if_else(year %in% '2020', NA_real_,N_deaths),
+         log_offset=log(1)) %>%
+  filter( !is.na(agec) & agec %in% c('25-44 years','45-64 years','65-74 years', '75-84 years','85 years and older' ) ) 
+
+mod.mat2 <- as.data.frame(model.matrix(~index+ sin12+cos12 +sin6 +cos6 + agec, data=ds2))
+names(mod.mat2) <- gsub('-','_',names(mod.mat2))
+names(mod.mat2) <- gsub(' ','_',names(mod.mat2))
+
+ds2 <- cbind.data.frame(ds2,mod.mat2[,grep('agec', names(mod.mat2))] )
+
+#Poisson
+mod2 <- glm(N_deaths_pre ~ index+ sin12+cos12 +sin6 +cos6  + agec5_24_years + agec25_44_years +
+                                      agec45_64_years + agec65_74_years + agec75_84_years +  agec85_years_and_older , 
+            data=ds2, family='poisson')
+
+#Negative binomial
+# mod2 <- glm.nb(N_deaths_pre ~ index+ sin12+cos12 +sin6 +cos6 + agec5_24_years + agec25_44_years +
+#                                       agec45_64_years + agec65_74_years + agec75_84_years +  agec85_years_and_older, 
+#             data=ds2)
+
+ds2 <- cbind.data.frame(ds2,pred_interval(mod=mod2,model.type='poisson',ds.glm=ds2))
+
+ggplot(data=ds2, aes(x=date, y=N_deaths)) +
+  geom_line() +
+  theme_classic()+
+    geom_ribbon(aes(ymin=pred_lcl, ymax=pred_ucl), alpha=0.2) +
+  facet_wrap(~agec)+
+      geom_vline(xintercept=as.Date('2020-03-01'), lty=2, col='gray80') 
+
+
+
+ds2 <- ds2 %>%
+  mutate(rr_median=N_deaths/pred_median, rr_lcl=N_deaths/pred_lcl, rr_ucl=N_deaths/pred_ucl)
+
+
+ggplot(data=ds2, aes(x=date, y=rr_median)) +
+  geom_line() +
+  theme_classic()+
+    geom_ribbon(aes(ymin=rr_lcl, ymax=rr_ucl), alpha=0.2)+
+  ylim(0.1,5) +
+  geom_hline(yintercept=1, lty=2, col='red') +
+    geom_vline(xintercept=as.Date('2020-03-01'), lty=2, col='gray80') +
+
+  facet_wrap(~agec)
+
+```
+
+race/ethnicity and age
+
+```{r}
+ds3 <- p3$ts %>%
+  mutate(date=as.Date(paste(year, month, '01', sep='-')),
+         qtr=as.factor(lubridate::quarter(date)),
+         index= interval('2014-01-01', date) %/% months(1) ,
+         sin12 = sin(2*pi*index/12),
+         cos12 = cos(2*pi*index/12),
+         sin6 = sin(2*pi*index*2/12),
+         cos6 = cos(2*pi*index*2/12),
+         N_deaths_pre= if_else(year %in% '2020', NA_real_,N_deaths),
+         log_offset=log(1)) %>%
+  filter( !is.na(agec) & agec %in% c('25-44 years','45-64 years','65-74 years', '75-84 years','85 years and older' ) ) 
+
+mod.mat3 <- as.data.frame(model.matrix(~index+ sin12+cos12 +sin6 +cos6 + agec +race_recode, data=ds3))
+names(mod.mat3) <- gsub('-','_',names(mod.mat3))
+names(mod.mat3) <- gsub(' ','_',names(mod.mat3))
+names(mod.mat3) <- gsub('/','_',names(mod.mat3))
+#names(mod.mat3) <- gsub('race_recode','',names(mod.mat3), fixed=T)
+
+ds3 <- cbind.data.frame(ds3,mod.mat3[,c(grep('agec', names(mod.mat3)), grep('race_recode', names(mod.mat3)))] )
+
+#Poisson
+mod3 <- glm(N_deaths_pre ~ index+ sin12+cos12 +sin6 +cos6  + agec5_24_years + agec25_44_years +
+                                      agec45_64_years + agec65_74_years + agec75_84_years +  agec85_years_and_older  + race_recodeBlack +race_recodeHispanic + race_recodeAmerican_Indian + race_recodeAsian_Pacific_Islanders , 
+            data=ds3, family='poisson')
+
+#Negative binomial
+# mod2 <- glm.nb(N_deaths_pre ~ index+ sin12+cos12 +sin6 +cos6 + agec5_24_years + agec25_44_years +
+#                                       agec45_64_years + agec65_74_years + agec75_84_years +  agec85_years_and_older, 
+#             data=ds2)
+
+ds3 <- cbind.data.frame(ds3,pred_interval(mod=mod3,model.type='poisson',ds.glm=ds3))
+
+ggplot(data=ds3, aes(x=date, y=N_deaths)) +
+  geom_line() +
+  theme_classic()+
+    geom_ribbon(aes(ymin=pred_lcl, ymax=pred_ucl), alpha=0.2) +
+  facet_wrap(race_recode~agec, scales='free')+
+      geom_vline(xintercept=as.Date('2020-03-01'), lty=2, col='gray80') 
+
+
+
+ds3 <- ds3 %>%
+  mutate(rr_median=N_deaths/pred_median, rr_lcl=N_deaths/pred_lcl, rr_ucl=N_deaths/pred_ucl)
+
+
+ggplot(data=ds3, aes(x=date, y=rr_median)) +
+  geom_line() +
+  theme_classic()+
+    geom_ribbon(aes(ymin=rr_lcl, ymax=rr_ucl), alpha=0.2)+
+  ylim(0.1,5) +
+  geom_hline(yintercept=1, lty=2, col='red') +
+    geom_vline(xintercept=as.Date('2020-03-01'), lty=2, col='gray80') +
+
+  facet_wrap(race_recode~agec)
 
 ```
 

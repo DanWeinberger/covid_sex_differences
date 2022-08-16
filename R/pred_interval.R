@@ -14,7 +14,7 @@ pred.coefs.reg.mean <-
                 mu = coef1,
                 Sigma = v.cov.mat)
 if(model.type=='poisson'){
-form2 <- update(mod1$formula, 'N_deaths~. ')
+form2 <- update(mod$formula, 'N_deaths~. ')
 }else{
 form2 <- as.formula(paste0( 'N_deaths~'  ,mod$terms[[3]] ))
 }
@@ -23,6 +23,8 @@ mod.mat.pred <- model.matrix(form2, data = ds.glm, family = "poisson")
 preds.stage1.regmean <- mod.mat.pred %*% t(pred.coefs.reg.mean)
 preds.stage1.regmean <- apply(preds.stage1.regmean, 2,
                               function(x) x + ds.glm$log_offset)
+
+preds.stage1.regmean[preds.stage1.regmean >100] <- 100
 
 if(model.type=='poisson'){
   preds.stage2 <- rpois(n = length(preds.stage1.regmean) * stage2.samples,
