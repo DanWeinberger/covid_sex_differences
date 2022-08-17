@@ -9,6 +9,8 @@ library(dplyr)
 library(lubridate)
 library(ggplot2)
 library(MASS)
+library(arules)
+library(arulesViz)
 source('./R/death_plot_fun.R')
 source('./R/pred_interval.R')
 
@@ -477,6 +479,46 @@ ggplot(data=ds5, aes(x=date, y=rr_median)) +
     geom_vline(xintercept=as.Date('2020-03-01'), lty=2, col='gray80') +
 
   facet_wrap(education_recode~agec, nrow=2)
+```
+Market basket analysis
+```{r}
+
+key.vars <- pneumo.deaths %>%
+  dplyr::select(starts_with('icd') , starts_with('age_group'),starts_with('education_recode'),starts_with('sex')) %>%
+  mutate(id=row_number())
+
+
+pneumo.deaths.m <- reshape2::melt(key.vars, id.vars=c('id')) %>%
+  filter(!is.na(value)) %>%
+  mutate(variable=gsub('[0-9]+', '', variable), 
+ item=paste(variable, value, sep='_')) %>%
+  dplyr::select(id, item)
+
+write.csv(pneumo.deaths.m,'./Raw Data/transacations.csv',row.names =F)
+
+order_trans <- read.transactions(
+        file = './Raw Data/transacations.csv',
+        format = "single",
+        sep = ",",
+        cols=c(1,2),
+        rm.duplicates = T
+)
+
+
+ itemFrequencyPlot(order_trans,topN=20,type="absolute")
+
+ rules <- apriori(order_trans,parameter=list(supp=0.001,conf = 0.5),appearance = list(default="lhs",rhs="icd_J13"))
+
+ summary(rules)
+
+rules<-sort(rules, by="confidence", decreasing=TRUE,)
+
+
+options(digits=2)
+inspect(rules[1:100])
+
+
+plot(rules, method="graph", shading='confidence')
 ```
 
 
