@@ -10,6 +10,8 @@ library(lubridate)
 library(ggplot2)
 library(MASS)
 source('./R/death_plot_fun.R')
+source('./R/pred_interval.R')
+
 source('./R/Format_US_Population.R')
 ```
 
@@ -380,12 +382,101 @@ Field is blank for registration areas that are using the 1989 revision format of
 8 ... Doctorate or professional degree
 9 ... Unknown 
 
-extracted fields 61-64, which includes Education 1989 revision field 1-2; education 2003 revision field 3, reporting flag field 4...need to parse this 
+Education reporting flag
+0 1989 revision of education item on certificate
+1 2003 revision of education item on certificate
+2 no education item on certificate
+
+education_recode: 1=HS or less; 2= some college or more; 99=missing
+
+```{r, fig.width=6, fig.height=10}
+unique(pneumo.deaths$education1989)
+
+unique(pneumo.deaths$education2003)
+
+unique(pneumo.deaths$education_flag)
+
+pneumo.deaths <- pneumo.deaths %>%
+  mutate(education_hs = if_else(education1989 %in% c('00','01','02','03','04','05','06','07','08','09','10','11','12') |education2003 %in% c('1','2','3') ,1,0 ),
+         education_college = ifelse( education1989 %in% c('13','14','15','16','17') | education2003 %in% c('4','5','6','7','8'),1,0),
+         education_missing= ifelse( education1989 %in% c('99') | education2003 %in% c('9'),1,0),
+         education_recode = ifelse(education_hs==1,1, ifelse(education_college==1,2,99) )
+         )
+
+table(pneumo.deaths$education_recode)
+
+p5 <- death_plot_fun(year,month,agec, education_recode) 
+p5$plot1+ facet_wrap(agec~education_recode, scales='free', ncol=3)
+```
+
+This shows a clear spike in pneumococcal mortality among young adults with HS education or lower during the first wave. This makes sense since these people are probably the least likely to be able to isolate
 ```{r}
-unique(pneumo.deaths$education)
 
-sum(substr(pneumo.deaths$education,1,1)== '9')/nrow(pneumo.deaths)
+ds5 <- p5$ts %>%
+  filter(education_recode %in% c(1,2)) %>%
+  mutate( education_recode=as.factor(education_recode)) %>%
+    group_by( year ,month, agec, education_recode) %>%
+  summarize(N_deaths=sum(N_deaths)) %>%
+  mutate(date=as.Date(paste(year, month, '01', sep='-')),
+         qtr=as.factor(lubridate::quarter(date)),
+         index= interval('2014-01-01', date) %/% months(1) ,
+         sin12 = sin(2*pi*index/12),
+         cos12 = cos(2*pi*index/12),
+         sin6 = sin(2*pi*index*2/12),
+         cos6 = cos(2*pi*index*2/12),
+         N_deaths_pre= if_else(year %in% '2020', NA_real_,N_deaths),
+         log_offset=log(1)) %>%
+  filter( !is.na(agec) & agec %in% c('25-44 years','45-64 years','65-74 years', '75-84 years','85 years and older' ) ) 
 
+
+mod.mat5 <- as.data.frame(model.matrix(~index+ sin12+cos12 +sin6 +cos6 + agec +education_recode, data=ds5))
+names(mod.mat5) <- gsub('-','_',names(mod.mat5))
+names(mod.mat5) <- gsub(' ','_',names(mod.mat5))
+names(mod.mat5) <- gsub('/','_',names(mod.mat5))
+#names(mod.mat5) <- gsub('education_recode','',names(mod.mat5), fixed=T)
+
+ds5 <- cbind.data.frame(ds5,mod.mat5[,c(grep('agec', names(mod.mat5)), grep('education_recode', names(mod.mat5)))] )
+
+#Poisson
+mod5 <- glm(N_deaths_pre ~ index+ sin12+cos12 +sin6 +cos6  + agec5_24_years + agec25_44_years +
+                                      agec45_64_years + agec65_74_years + agec75_84_years +  agec85_years_and_older  + education_recode2 , 
+            data=ds5, family='poisson')
+
+#Negative binomial
+# mod2 <- glm.nb(N_deaths_pre ~ index+ sin12+cos12 +sin6 +cos6 + agec5_24_years + agec25_44_years +
+#                                       agec45_64_years + agec65_74_years + agec75_84_years +  agec85_years_and_older, 
+#             data=ds2)
+
+ds5 <- cbind.data.frame(ds5,pred_interval(mod=mod5,model.type='poisson',ds.glm=ds5))
+
+ggplot(data=ds5, aes(x=date, y=N_deaths)) +
+  geom_line() +
+  theme_classic()+
+    geom_ribbon(aes(ymin=pred_lcl, ymax=pred_ucl), alpha=0.2) +
+  facet_wrap(education_recode~agec, scales='free', nrow=2)+
+      geom_vline(xintercept=as.Date('2020-03-01'), lty=2, col='gray80') 
+
+ggplot(data=ds5[ds5$year==2020,], aes(x=date, y=N_deaths)) +
+  geom_line() +
+  theme_classic()+
+    geom_ribbon(aes(ymin=pred_lcl, ymax=pred_ucl), alpha=0.2) +
+  facet_wrap(education_recode~agec, scales='free', nrow=2)+
+      geom_vline(xintercept=as.Date('2020-03-01'), lty=2, col='gray80') 
+
+
+ds5 <- ds5 %>%
+  mutate(rr_median=N_deaths/pred_median, rr_lcl=N_deaths/pred_lcl, rr_ucl=N_deaths/pred_ucl)
+
+
+ggplot(data=ds5, aes(x=date, y=rr_median)) +
+  geom_line() +
+  theme_classic()+
+    geom_ribbon(aes(ymin=rr_lcl, ymax=rr_ucl), alpha=0.2)+
+  ylim(0.1,5) +
+  geom_hline(yintercept=1, lty=2, col='red') +
+    geom_vline(xintercept=as.Date('2020-03-01'), lty=2, col='gray80') +
+
+  facet_wrap(education_recode~agec, nrow=2)
 ```
 
 
