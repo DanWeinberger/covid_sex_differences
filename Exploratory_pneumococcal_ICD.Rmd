@@ -17,6 +17,11 @@ source('./R/death_plot_fun.R')
 source('./R/pred_interval.R')
 
 source('./R/Format_US_Population.R')
+
+#https://github.com/socdataR/wonderapi
+#devtools::install_github("socdataR/wonderapi", build_vignettes = F, force=T)
+library(wonderapi)
+
 ```
 
 ```{r}
@@ -27,6 +32,16 @@ pneumo.deaths$agec <- factor(pneumo.deaths$agec, c("Under 5 Years",'5-24 years',
 pneumo.deaths$race_recode <- factor(pneumo.deaths$race_recode, levels=c(1,2,3,4,5), c('White','Black','Hispanic','American Indian', 'Asian/Pacific Islanders')) 
 
 pneumo.deaths$one <- 1
+
+#Collect all of the ICD codes into a single field
+pneumo.deaths$all_icd <- apply(pneumo.deaths[, grep('icd', names(pneumo.deaths))], 1, function(x) paste(x, collapse=' ' ))
+
+pneumo.deaths$J13 <- grepl('J13',pneumo.deaths$all_icd)
+pneumo.deaths$A403 <- grepl('A403',pneumo.deaths$all_icd)
+
+pneumo.deaths$pneumo <- 1
+
+table(pneumo.deaths$J13,pneumo.deaths$A403 )
 ```
 
 Popsize data
@@ -60,14 +75,26 @@ sort(table(pneumo.deaths$icd2), decreasing=T)[1:100]
 ```
 
 ```{r}
-p1 <- death_plot_fun(year,month)
-p1$plot1
+p1 <- death_plot_fun(year,month, J13 )
+p1$plot1 +
+  facet_wrap(~J13)
+
+p1 <- death_plot_fun(year,month, A403 )
+p1$plot1 +
+  facet_wrap(~A403)
 ```
 
 ```{r}
 p2 <- death_plot_fun(year,month, agec) 
 p2$plot1 + facet_wrap(~agec, scales='free')
 ```
+By syndrome as well
+```{r, fig.height=10, fig.width=5}
+p2 <- death_plot_fun(year,month, agec, J13) 
+p2$plot1 + facet_wrap(agec~J13, scales='free', ncol=2)
+```
+
+
 Note; big differences in age distribution. Hispanic skews much younger
 ```{r}
 p3 <- death_plot_fun(year,month, race_recode) 
@@ -482,6 +509,39 @@ ggplot(data=ds5, aes(x=date, y=rr_median)) +
 
   facet_wrap(education_recode~agec, nrow=2)
 ```
+
+## Get latest data from CDC WONDER
+
+```{r}
+# dbnamelookup <- wonderapi::show_databases()
+# 
+# mylist <- list(list("Group Results By", "D176.V1-level1"), #year
+#                list("And By", "D176.V1-level2"), #month
+#                list("And By", "D176.V13-level3"),#by multiple cause of death
+#                list("Month", "2") )  #subset MCD to those including A40-A41 
+# 
+# 
+# #V_D176.V5 limit by multiple cause of death subchapter
+# mydata2 <- getData("Provisional Multiple Cause of Death", mylist)
+
+#Stratify by Year, month, ICD10; select MCD J13 and A40.3
+
+mydata1 <- read.table('./Data/Wonder/Multiple Cause of Death, 2018-2020, Single Race_2022_08_25.txt', header=T, sep="\t")
+
+mydata2 <- mydata1 %>%
+  mutate(date= as.Date(paste0(substr(Month,1,3),substr(Year,1,4), '01'), '%b%Y%d'), month=lubridate::month(date),
+         year=lubridate::year(date)) %>%
+  filter(date<max(date)) #get rid of last month
+
+
+ggplot(mydata2, aes(x=month, y=Deaths, group=year, color=year)) +
+  geom_line()+
+  theme_classic()+
+  ylim(0, NA)
+  
+
+```
+
 Market basket analysis
 ```{r}
 
