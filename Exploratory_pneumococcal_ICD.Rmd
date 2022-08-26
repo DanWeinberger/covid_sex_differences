@@ -20,7 +20,7 @@ source('./R/Format_US_Population.R')
 
 #https://github.com/socdataR/wonderapi
 #devtools::install_github("socdataR/wonderapi", build_vignettes = F, force=T)
-library(wonderapi)
+#library(wonderapi)
 
 ```
 
