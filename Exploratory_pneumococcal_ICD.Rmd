@@ -580,9 +580,13 @@ rules<-sort(rules, by="lift", decreasing=TRUE,)
 options(digits=2)
 inspect(rules[1:100])
 
-
 plot(rules, method="graph", shading='lift')
 ```
+
+```{r}
+
+```
+
 
 
 
