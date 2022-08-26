@@ -526,18 +526,19 @@ ggplot(data=ds5, aes(x=date, y=rr_median)) +
 
 #Stratify by Year, month, ICD10; select MCD J13 and A40.3
 
-mydata1 <- read.table('./Data/Wonder/Multiple Cause of Death, 2018-2020, Single Race_2022_08_25.txt', header=T, sep="\t")
+mydata1 <- read.csv('./Data/Wonder/Provisional Mortality Statistics, 2018 through Last Month 2022_8_25.txt', header=T, sep="\t")
 
 mydata2 <- mydata1 %>%
   mutate(date= as.Date(paste0(substr(Month,1,3),substr(Year,1,4), '01'), '%b%Y%d'), month=lubridate::month(date),
-         year=lubridate::year(date)) %>%
-  filter(date<max(date)) #get rid of last month
+         year=as.factor(lubridate::year(date))) %>%
+  filter(Multiple.Cause.of.death.Code !='') 
 
 
 ggplot(mydata2, aes(x=month, y=Deaths, group=year, color=year)) +
   geom_line()+
   theme_classic()+
-  ylim(0, NA)
+  ylim(0, NA) +
+  facet_wrap(~Multiple.Cause.of.death.Code)
   
 
 ```
