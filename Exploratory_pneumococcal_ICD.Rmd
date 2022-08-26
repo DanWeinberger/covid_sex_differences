@@ -582,6 +582,48 @@ inspect(rules[1:100])
 
 plot(rules, method="graph", shading='lift')
 ```
+2020 only
+```{r}
+
+key.vars2020 <- pneumo.deaths %>%
+  filter(year==2020) %>%
+  dplyr::select(starts_with('icd') , starts_with('age_group'),starts_with('education_recode'),starts_with('sex')) %>%
+  mutate(id=row_number())
+
+
+pneumo.deaths.m2020 <- reshape2::melt(key.vars2020, id.vars=c('id')) %>%
+  filter(!is.na(value)) %>%
+  mutate(variable=gsub('[0-9]+', '', variable), 
+ item=paste(variable, value, sep='_')) %>%
+  dplyr::select(id, item)
+
+write.csv(pneumo.deaths.m2020,'./Raw Data/transacations2020.csv',row.names =F)
+
+order_trans2020 <- read.transactions(
+        file = './Raw Data/transacations2020.csv',
+        format = "single",
+        sep = ",",
+        cols=c(1,2),
+        rm.duplicates = T
+)
+
+
+ itemFrequencyPlot(order_trans2020,topN=20,type="absolute")
+
+ rules2020 <- apriori(order_trans2020,parameter=list(supp=0.001,conf = 0.5),appearance = list(default="lhs",rhs="icd_J13"))
+
+ summary(rules2020)
+
+rules<-sort(rules2020, by="lift", decreasing=TRUE,)
+
+
+options(digits=2)
+inspect(rules[1:100])
+
+plot(rules2020, method="graph", shading='lift')
+```
+```
+
 
 ```{r}
 
