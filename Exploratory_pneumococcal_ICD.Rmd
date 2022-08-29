@@ -547,6 +547,7 @@ Market basket analysis
 ```{r}
 
 key.vars <- pneumo.deaths %>%
+    filter(year<2020) %>%
   dplyr::select(starts_with('icd') , starts_with('age_group'),starts_with('education_recode'),starts_with('sex')) %>%
   mutate(id=row_number())
 
