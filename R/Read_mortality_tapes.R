@@ -36,6 +36,10 @@ library(cdlTools)
 
 df1 <- readRDS('./Raw Data/compiled_data.rds')
 
+#Combine all the ICD codes into a single variable separated by _
+df1 <-  df1 %>%
+  unite(all_icd, icd1:icd21, na.rm=F)
+
 df1$hisp_recode <- 999
 df1$hisp_recode[df1$hispanic<=199 & df1$hispanic>=100] <- 0
 df1$hisp_recode[df1$hispanic >=200 & df1$hispanic <= 299] <- 1
@@ -75,18 +79,25 @@ df1$agec[df1$age_group %in% c('09')] <- "65-74 years"
 df1$agec[df1$age_group %in% c('10')] <- "75-84 years"
 df1$agec[df1$age_group %in% c('11')] <- '85 years and older'
 
+
+
+
 ## Cause specific deaths
 
 covid.codes <- c('U071','Z28310','Z28311',"Z86.16", "Z28.9","J1282","M3581") #Define codes for COVID-19 https://www.cdc.gov/mmwr/volumes/70/wr/mm7014e2.htm U07.1 probably only relevant one for 2020
 
 pneumococcal.codes <- c('A403','J13','B953','G001')
 
-icd.cols <- grep('icd',names(df1)) #Define columns with multiple cause of death stats
 
-df.disease <- pbapply(df1[,icd.cols],2, function(x) x %in% pneumococcal.codes )
+df1 <- df1 %>%
+  mutate(a403 = 1*grepl('A403',all_icd),
+         j13 = 1*grepl('J13', all_icd),
+         b953 = 1*grepl('B953', all_icd),
+         g001 = 1*grepl('G001', all_icd),
+         pneumococcal =  1*((a403 + j13 + b953 + g001 )>0)  ,
+         covid = grepl('U071', all_icd),
+         streptococcal_sepsis = 1* ( grepl('A408',all_icd) + grepl('A409',all_icd) )>0 ) 
 
-df1$pneumococcal <- rowSums(df.disease) #how many RSV codes re there per row?
-df1$pneumococcal <- 1*(df1$pneumococcal>0) #convert to binary
 
 df1$agey <- as.numeric(df1$age_detail_number)
 df1$agey[df1$age_detail_class==2] <- as.numeric(df1$age_detail_number[df1$age_detail_class==2] )/12
@@ -98,10 +109,13 @@ df1$agey[df1$age_detail_class==6] <- as.numeric(df1$age_detail_number[df1$age_de
 
 pneumococcal_deaths <- df1 %>%
   filter(pneumococcal==1)
+
 #hist(df1$agey[df1$rsv==1 & df1$agey<1])
 
-df.covid <-  pbapply(pneumococcal_deaths[,icd.cols],2, function(x) x %in% covid.codes )
-pneumococcal_deaths$covid <- rowSums(df.covid) #how many RSV codes re there per row?
-pneumococcal_deaths$covid <- 1*(pneumococcal_deaths$covid) #convert to binary
+
+df1 %>%
+  group_by(year) %>%
+  summarize(pneumococcal=sum(pneumococcal) , streptococcal_sepsis=sum(streptococcal_sepsis))
+
 
 saveRDS(pneumococcal_deaths,'./Data/pneumococcal_deaths_line_list.rds')
