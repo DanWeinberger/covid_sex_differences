@@ -96,6 +96,8 @@ df1 <- df1 %>%
          g001 = 1*grepl('G001', all_icd),
          pneumococcal =  1*((a403 + j13 + b953 + g001 )>0)  ,
          covid = grepl('U071', all_icd),
+         j154 =1 *grepl('J154', all_icd), #streptococcal pneumonia
+         j181 =1 *grepl('J181', all_icd), #unspecified lobar pneumonia
          streptococcal_sepsis = 1* ( grepl('A408',all_icd) + grepl('A409',all_icd) )>0 ) 
 
 
@@ -108,7 +110,7 @@ df1$agey[df1$age_detail_class==6] <- as.numeric(df1$age_detail_number[df1$age_de
 
 
 pneumococcal_deaths <- df1 %>%
-  filter(pneumococcal==1)
+  filter(pneumococcal==1 | j154==1 |j181==1 | )
 
 #hist(df1$agey[df1$rsv==1 & df1$agey<1])
 
